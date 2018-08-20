@@ -16,7 +16,7 @@ public class Config {
 
 	static{
 		try {
-			InputStream inStream = new FileInputStream("config.properties");
+			InputStream inStream = new FileInputStream("./JsnarkCircuitBuilder/config.properties");
 			properties.load(inStream);
 		} catch (FileNotFoundException e) {
 			System.err.println("config.properties file not found.");

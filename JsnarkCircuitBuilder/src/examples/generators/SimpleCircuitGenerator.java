@@ -37,9 +37,12 @@ public class SimpleCircuitGenerator extends CircuitGenerator {
 
 	@Override
 	public void generateSampleInput(CircuitEvaluator circuitEvaluator) {
-		for (int i = 0; i < 4; i++) {
-			circuitEvaluator.setWireValue(inputs[i], i + 1);
-		}
+		//for (int i = 0; i < 4; i++) {
+		circuitEvaluator.setWireValue(inputs[0], 4);
+		circuitEvaluator.setWireValue(inputs[1], 5);
+		circuitEvaluator.setWireValue(inputs[2], 6);
+		circuitEvaluator.setWireValue(inputs[3], 7);
+		//}
 	}
 
 	public static void main(String[] args) throws Exception {
