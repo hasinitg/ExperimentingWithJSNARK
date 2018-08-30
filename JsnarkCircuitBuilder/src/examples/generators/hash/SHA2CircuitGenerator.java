@@ -23,7 +23,8 @@ public class SHA2CircuitGenerator extends CircuitGenerator {
 		// assuming the circuit input will be 64 bytes
 		inputWires = createInputWireArray(64);
 		// this gadget is not applying any padding.
-		sha2Gadget = new SHA256Gadget(inputWires, 8, 64, false, false);
+		sha2Gadget = new SHA256Gadget(inputWires, 8, 64, false,
+				false);
 		Wire[] digest = sha2Gadget.getOutputWires();
 		makeOutputArray(digest, "digest");
 		

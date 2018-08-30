@@ -34,7 +34,7 @@ public class MySimpleCircuitGenerator extends CircuitGenerator {
         MySimpleCircuitGenerator myGen = new MySimpleCircuitGenerator("zcash_blog_example");
         myGen.generateCircuit();
         myGen.evalCircuit();
-        myGen.evalCircuit();
+        //myGen.evalCircuit();
         myGen.prepFiles();
         myGen.runLibsnark();
     }
