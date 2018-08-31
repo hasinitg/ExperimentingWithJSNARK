@@ -4,37 +4,39 @@ import circuit.eval.CircuitEvaluator;
 import circuit.structure.CircuitGenerator;
 import circuit.structure.Wire;
 
-public class MySimpleCircuitGenerator extends CircuitGenerator {
+/**
+ * This is a very simple verification circuit which a prover can use to
+ * prove that given z, the prover knows x, y such that x + y = z.
+ * This is the example explained in the zcash blog part 1. */
+public class SimpleVerificationCircuitGenerator extends CircuitGenerator {
 
     private Wire[] privateInputs;
+    private Wire expOutput;
 
-    public MySimpleCircuitGenerator(String circuitName) {
+    public SimpleVerificationCircuitGenerator(String circuitName) {
         super(circuitName);
     }
 
     @Override
     protected void buildCircuit() {
-        //publicInput = createInputWire();
-        Wire constantInput = createConstantWire(7);
+        expOutput = createInputWire();
         privateInputs = createProverWitnessWireArray(2);
-        Wire intermediate = privateInputs[0].add(privateInputs[1]);
-        addEqualityAssertion(constantInput, intermediate);
+        Wire result = privateInputs[0].add(privateInputs[1]);
+        addEqualityAssertion(expOutput, result);
 
-        //following line does not make any difference.
-        //makeOutput(constantInput);
     }
 
     @Override
     public void generateSampleInput(CircuitEvaluator evaluator) {
         evaluator.setWireValue(privateInputs[0], 2);
         evaluator.setWireValue(privateInputs[1], 5);
+        evaluator.setWireValue(expOutput, 7);
     }
 
     public static void main(String[] args) {
-        MySimpleCircuitGenerator myGen = new MySimpleCircuitGenerator("zcash_blog_example");
+        SimpleVerificationCircuitGenerator myGen = new SimpleVerificationCircuitGenerator("zcash_blog_example");
         myGen.generateCircuit();
         myGen.evalCircuit();
-        //myGen.evalCircuit();
         myGen.prepFiles();
         myGen.runLibsnark();
     }
