@@ -12,6 +12,7 @@ public class SHA_RSA_CircuitGenerator extends CircuitGenerator {
     private Wire[] privateInput;
     String inputStr = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl";
     static String expectedDigest = "aeacdd7013805404b62e0701cd09aeab2a4994c519d7f1d7cf7a295a5d8201ad";
+    //static String expectedDigest = "abacdd7013805404b62e0701cd09aeab2a4994c519d7f1d7cf7a295a5d8201ad";
 
     public SHA_RSA_CircuitGenerator(String circuitName){
         super(circuitName);
@@ -22,6 +23,7 @@ public class SHA_RSA_CircuitGenerator extends CircuitGenerator {
         privateInput = createProverWitnessWireArray(64);
         Wire[] digest = new SHA256Gadget(privateInput, 8, 64, false,
                 false).getOutputWires();
+        makeOutputArray(digest);
         int beginIndex = 0;
         int endIndex = 8;
         for(int i =0; i<8; i++){
@@ -30,7 +32,7 @@ public class SHA_RSA_CircuitGenerator extends CircuitGenerator {
             beginIndex +=8;
             endIndex +=8;
         }
-       // makeOutputArray(digest);
+
     }
 
     @Override
