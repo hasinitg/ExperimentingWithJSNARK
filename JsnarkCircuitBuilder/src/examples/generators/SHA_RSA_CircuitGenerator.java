@@ -1,165 +1,115 @@
 package examples.generators;
 
-import circuit.auxiliary.LongElement;
 import circuit.eval.CircuitEvaluator;
 import circuit.structure.CircuitGenerator;
 import circuit.structure.Wire;
 import circuit.structure.WireArray;
+import examples.gadgets.blockciphers.SymmetricEncryptionCBCGadget;
 import examples.gadgets.hash.SHA256Gadget;
-import examples.gadgets.rsa.RSAEncryptionV1_5_Gadget;
-import examples.generators.rsa.RSAUtil;
+import util.Util;
 
-import javax.crypto.Cipher;
 import java.math.BigInteger;
-import java.security.Key;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.SecureRandom;
-import java.security.interfaces.RSAPrivateKey;
-import java.security.interfaces.RSAPublicKey;
-import java.util.Arrays;
 
 public class SHA_RSA_CircuitGenerator extends CircuitGenerator {
 
-    private String inputStr;
-    private Wire[] privateInputMessage;
-    private Wire[] randomness;
+    /*Inputs to the SHA256 gadget*/
+    private Wire[] plainTextWiresToSHA256;
+    private int plainTextWordSizeForSHA256; //in 8-bits words
+
+    /*Inputs,outputs of the symmetric CBC gadget*/
+    private Wire[] plainTextWiresToSymEncr;// as 64 bit words
+    private int plainTextWordSizeForSymEncr; //in 64 bit words
+    private Wire[] keyBitsWires; //128 bits
+    private Wire[] ivBitsWires; //128 bits
+    private final int keyIVSize = 128;
     private Wire[] cipherText;
 
-    private LongElement rsaModulus;
-    private int plainTextLength = 64;
-    private int rsaKeyLength;
+    /*Inputs to the circuit*/
+    private String plainTextInHex; //in hex
+    private String keyString; //in hex
+    private String ivString; //in hex
 
-    //static String expectedDigest = "aeacdd7013805404b62e0701cd09aeab2a4994c519d7f1d7cf7a295a5d8201ad";
+    //currently only speck cipher is supported in CBC mode. therefore we hardcode it here.
+    String cipherName = "speck128";
 
-    public SHA_RSA_CircuitGenerator(String circuitName, String inputString, int plainTextLength, int rsaKeyLength){
+    //todo: write a test case
+    public SHA_RSA_CircuitGenerator(String circuitName, String plainText, String key, String iv) {
         super(circuitName);
-        this.inputStr = inputString;
-        this.plainTextLength = plainTextLength;
-        this.rsaKeyLength = rsaKeyLength;
+        this.plainTextInHex = plainText;
+        //todo: check the constraints on plaintext size
+        this.keyString = key;
+        this.ivString = iv;
     }
 
     @Override
     protected void buildCircuit() {
-        privateInputMessage = createProverWitnessWireArray(plainTextLength);
+        //SHA-256 sub circuit logic
+        plainTextWordSizeForSHA256 = plainTextInHex.length() / 2;
+        plainTextWiresToSHA256 = createProverWitnessWireArray(plainTextWordSizeForSHA256);
+        Wire[] digest = new SHA256Gadget(plainTextWiresToSHA256, 8, plainTextWordSizeForSHA256,
+                false, true, "").getOutputWires();
+        makeOutputArray(digest);
 
-        for(int i = 0; i < plainTextLength;i++){
-            privateInputMessage[i].restrictBitLength(8);
-        }
-
-        //SHA-256 part of the circuit
-        Wire[] digest = new SHA256Gadget(privateInputMessage, 8, 64, false,
-                false).getOutputWires();
-        makeOutputArray(digest, "Output digest");
-
-        //RSA part of the circuit
-        randomness = createProverWitnessWireArray(RSAEncryptionV1_5_Gadget
-                .getExpectedRandomnessLength(rsaKeyLength, plainTextLength));
-
-        rsaModulus = createLongElementInput(rsaKeyLength);
-
-        RSAEncryptionV1_5_Gadget rsaEncryptionV1_5_Gadget = new RSAEncryptionV1_5_Gadget(rsaModulus, privateInputMessage,
-                randomness, rsaKeyLength);
-        rsaEncryptionV1_5_Gadget.checkRandomnessCompliance();
-        Wire[] cipherTextInBytes = rsaEncryptionV1_5_Gadget.getOutputWires(); // in bytes
-
-        // do some grouping to reduce VK Size
-        cipherText = new WireArray(cipherTextInBytes).packWordsIntoLargerWords(8, 30);
-        makeOutputArray(cipherText,
-                "Output cipher text");
-
+        //Symmetric CBC sub circuit logic
+        plainTextWordSizeForSymEncr = (plainTextInHex.length() * 4) / 64;
+        plainTextWiresToSymEncr = createProverWitnessWireArray(plainTextWordSizeForSymEncr);
+        keyBitsWires = createProverWitnessWireArray(keyIVSize);
+        ivBitsWires = createProverWitnessWireArray(keyIVSize);
+        Wire[] plainTextBits = new WireArray(plainTextWiresToSymEncr).getBits(64).asArray();
+        cipherText = new SymmetricEncryptionCBCGadget(plainTextBits, keyBitsWires, ivBitsWires, cipherName).getOutputWires();
+        makeOutputArray(cipherText);
     }
 
     @Override
     public void generateSampleInput(CircuitEvaluator evaluator) {
-        for(int i = 0; i < privateInputMessage.length; i++){
-            evaluator.setWireValue(privateInputMessage[i], inputStr.charAt(i));
+        //set input wires of SHA-256 sub circuit
+        for (int i = 0; i < plainTextWordSizeForSHA256; i++) {
+            String word = plainTextInHex.substring(i * 2, i * 2 + 2);
+            evaluator.setWireValue(plainTextWiresToSHA256[i], new BigInteger(word, 16));
         }
 
-        try {
-
-            // to make sure that the implementation is working fine,
-            // encrypt with the underlying java implementation for RSA
-            // Encryption in a sample run,
-            // extract the randomness (after decryption manually), then run the
-            // circuit with the extracted randomness
-
-            SecureRandom random = new SecureRandom();
-            KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-            generator.initialize(rsaKeyLength, random);
-            KeyPair pair = generator.generateKeyPair();
-            Key pubKey = pair.getPublic();
-            //((RSAPublicKey)pubKey).getPublicExponent();
-            BigInteger modulus = ((RSAPublicKey) pubKey).getModulus();
-
-            Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-            evaluator.setWireValue(this.rsaModulus, modulus,
-                    LongElement.BITWIDTH_PER_CHUNK);
-
-            Key privKey = pair.getPrivate();
-
-            cipher.init(Cipher.ENCRYPT_MODE, pubKey, random);
-            byte[] cipherText = cipher.doFinal(inputStr.getBytes());
-//			System.out.println("ciphertext : " + new String(cipherText));
-            byte[] cipherTextPadded = new byte[cipherText.length + 1];
-            System.arraycopy(cipherText, 0, cipherTextPadded, 1, cipherText.length);
-            cipherTextPadded[0] = 0;
-
-            byte[][] result = RSAUtil.extractRSARandomness1_5(cipherText,
-                    (RSAPrivateKey) privKey);
-            // result[0] contains the plaintext (after decryption)
-            // result[1] contains the randomness
-
-            boolean check = Arrays.equals(result[0], inputStr.getBytes());
-            if (!check) {
-                throw new RuntimeException(
-                        "Randomness Extraction did not decrypt right");
-            }
-
-            byte[] sampleRandomness = result[1];
-            for (int i = 0; i < sampleRandomness.length; i++) {
-                evaluator.setWireValue(randomness[i], (sampleRandomness[i]+256)%256);
-            }
-
-        } catch (Exception e) {
-            System.err
-                    .println("Error while generating sample input for circuit");
-            e.printStackTrace();
+        //set input wires of Symmetric CBC sub circuit
+        for (int i = 0; i < plainTextWordSizeForSymEncr; i++) {
+            String inputSubString = plainTextInHex.substring(i * 16, i * 16 + 16);
+            evaluator.setWireValue(plainTextWiresToSymEncr[i], new BigInteger(inputSubString, 16));
         }
-
+        //convert hex representations of key and iv to binary reqpresentation
+        String binaryKey = new BigInteger(keyString, 16).toString(2);
+        int binaryKeyLength = binaryKey.length();
+        if (binaryKeyLength != 128) {
+            int paddingLength = 128 - binaryKeyLength;
+            for (int i = 0; i < paddingLength; i++) {
+                binaryKey = "0" + binaryKey;
+            }
+        }
+        String binaryIV = new BigInteger(ivString, 16).toString(2);
+        int binaryIVLength = binaryIV.length();
+        if (binaryIVLength != 128) {
+            int paddingLength = 128 - binaryIVLength;
+            for (int i = 0; i < paddingLength + 1; i++) {
+                binaryIV = "0" + binaryIV;
+            }
+        }
+        for (int j = 0; j < 128; j++) {
+            evaluator.setWireValue(keyBitsWires[j], new BigInteger(binaryKey.substring(j, j + 1), 2));
+            evaluator.setWireValue(ivBitsWires[j], new BigInteger(binaryIV.substring(j, j + 1), 2));
+        }
     }
 
     public static void main(String[] args) {
-        String inputStr = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl";
-        int plainTextLength = 64;
-        int rsaKeyLength = 1024;
-        SHA_RSA_CircuitGenerator circuitGenerator = new SHA_RSA_CircuitGenerator("PrivIdEx-1", inputStr,
-                plainTextLength, rsaKeyLength);
+        String plainText = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl";
+        //we assume plaintextInHex to be of size in multiples of 16 (i.e: original string to be in size in multiples of 8)
+        //this is because, for the symmetric encryption gadget, input size is 64bit words (=16 hex, =8 chars)
+        String plainTextInHex = Util.stringToHex(plainText);
+        //key and iv was obtained from Speck256 test at: https://github.com/inmcm/Simon_Speck_Ciphers/blob/master/Python/simonspeckciphers/speck/speck.py
+        String key = "1f1e1d1c1b1a19181716151413121110";
+        String iv = "0f0e0d0c0b0a09080706050403020100";
+
+        SHA_RSA_CircuitGenerator circuitGenerator = new SHA_RSA_CircuitGenerator("PrivIdEx-1", plainTextInHex,
+                key, iv);
         circuitGenerator.generateCircuit();
         circuitGenerator.evalCircuit();
         circuitGenerator.prepFiles();
         circuitGenerator.runLibsnark();
-
-//        CircuitEvaluator evaluator = circuitGenerator.getCircuitEvaluator();
-//        String outDigest = "";
-//        int beginIndex = 0;
-//        int endIndex = 8;
-//        for (Wire w : circuitGenerator.getOutWires()) {
-//            String ss = expectedDigest.substring(beginIndex, endIndex);
-//            System.out.println(ss);
-//
-//            BigInteger ex = new BigInteger(ss, 16);
-//            if(evaluator.getWireValue(w).equals(ex)){
-//                System.out.println("true");
-//            }
-//
-//            outDigest = evaluator.getWireValue(w).toString(16);
-//            System.out.println(outDigest);
-//
-//            beginIndex +=8;
-//            endIndex +=8;
-//        }
-//        System.out.println("Finish");
-//        System.out.println(outDigest);
     }
 }
