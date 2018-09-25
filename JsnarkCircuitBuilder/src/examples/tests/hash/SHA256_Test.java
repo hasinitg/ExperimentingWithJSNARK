@@ -174,24 +174,25 @@ public class SHA256_Test extends TestCase {
 
 		String inputStr = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl";
 		String expectedDigest = "2fcd5a0d60e4c941381fcc4e00a4bf8be422c3ddfafb93c809e8d1e2bfffae8e";
-
+		String inputStrInHex = Util.stringToHex(inputStr);
 		// Testing different settings of the bitWidthPerInputElement parameter
 		// wordSize = # of bytes per input wire
 
+		int[] listOfNumberOfHexDigitsPerInputWire = {2, 4, 8, 16};
+		for (int numHexDigitsPerInputWire : listOfNumberOfHexDigitsPerInputWire) {
+
 		//for (int wordSize = 1; wordSize <= Config.LOG2_FIELD_PRIME / 8 - 1; wordSize++) {
 
-		final int numBytesPerInputWire = 8;
-		final int numHexDigitsPerInputWire = 16;
-		String inputStrInHex = RandomTester.charToHex(inputStr, inputStr.length());
+		//final int numHexDigitsPerInputWire = 16;
 
 		CircuitGenerator generator = new CircuitGenerator("SHA2_Test5") {
 
 				Wire[] inputWires;
 				@Override
 				protected void buildCircuit() {
-					inputWires = createInputWireArray((inputStrInHex.length()/2)/ numBytesPerInputWire
-							+ ((inputStrInHex.length()/2) % numBytesPerInputWire != 0 ? 1 : 0));
-					Wire[] digest = new SHA256Gadget(inputWires, 8 * numBytesPerInputWire,
+					inputWires = createInputWireArray((inputStrInHex.length()/numHexDigitsPerInputWire)
+							+ ((inputStrInHex.length()) % numHexDigitsPerInputWire != 0 ? 1 : 0));
+					Wire[] digest = new SHA256Gadget(inputWires, 4*numHexDigitsPerInputWire,
 							inputStrInHex.length()/2, false, true, "")
 							.getOutputWires();
 					makeOutputArray(digest);
@@ -201,13 +202,15 @@ public class SHA256_Test extends TestCase {
 				public void generateSampleInput(CircuitEvaluator e) {
 					for (int i = 0; i < inputWires.length; i++) {
 						BigInteger sum = BigInteger.ZERO;
+						//int j = i*numHexDigitsPerInputWire;
 						for (int j = i * numHexDigitsPerInputWire; j < (i + 1) * numHexDigitsPerInputWire
-								&& j < inputStrInHex.length()-2; j+=2) {
-							String substring = inputStrInHex.substring(j, j+2);
+								&& j < inputStrInHex.length(); j+=2) {
+							String substring = inputStrInHex.substring(j,
+									j+2);
 							BigInteger v = new BigInteger(substring, 16);
 //							BigInteger v = BigInteger.valueOf(inputStr
 //									.charAt(j));
-							sum = sum.add(v.shiftLeft((Math.floorDiv(j, 2) % numBytesPerInputWire) * 8));
+							sum = sum.add(v.shiftLeft(((j % numHexDigitsPerInputWire)/2) * 8));
 						}
 						e.setWireValue(inputWires[i], sum);
 					}
@@ -225,7 +228,63 @@ public class SHA256_Test extends TestCase {
 			}
 			assertEquals(expectedDigest, outDigest);
 
-		//}
+		}
+
+	}
+
+	@Test
+	public void testCase6() {
+
+		String inputStr = "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq";
+		String expectedDigest = "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1";
+
+		// Testing different settings of the bitWidthPerInputElement parameter
+		// wordSize = # of bytes per input wire
+
+
+		final int numBytesPerInputWire = 8;
+
+		CircuitGenerator generator = new CircuitGenerator("SHA2_Test5") {
+
+			Wire[] inputWires;
+
+			@Override
+			protected void buildCircuit() {
+				inputWires = createInputWireArray(inputStr.length()
+						/ numBytesPerInputWire
+						+ (inputStr.length() % numBytesPerInputWire != 0 ? 1 : 0));
+				Wire[] digest = new SHA256Gadget(inputWires, 8 * numBytesPerInputWire,
+						inputStr.length(), false, true, "")
+						.getOutputWires();
+				makeOutputArray(digest);
+			}
+
+			@Override
+			public void generateSampleInput(CircuitEvaluator e) {
+				for (int i = 0; i < inputWires.length; i++) {
+					BigInteger sum = BigInteger.ZERO;
+					for (int j = i * numBytesPerInputWire; j < (i + 1) * numBytesPerInputWire
+							&& j < inputStr.length(); j++) {
+						BigInteger v = BigInteger.valueOf(inputStr
+								.charAt(j));
+						sum = sum.add(v.shiftLeft((j % numBytesPerInputWire) * 8));
+					}
+					e.setWireValue(inputWires[i], sum);
+				}
+			}
+		};
+
+		generator.generateCircuit();
+		generator.evalCircuit();
+		CircuitEvaluator evaluator = generator.getCircuitEvaluator();
+
+		String outDigest = "";
+		for (Wire w : generator.getOutWires()) {
+			outDigest += Util.padZeros(
+					evaluator.getWireValue(w).toString(16), 8);
+		}
+		assertEquals(outDigest, expectedDigest);
+
 
 	}
 }
