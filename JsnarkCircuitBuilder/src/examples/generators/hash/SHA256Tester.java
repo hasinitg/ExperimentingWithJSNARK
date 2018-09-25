@@ -21,9 +21,12 @@ public class SHA256Tester extends CircuitGenerator {
 
     @Override
     protected void buildCircuit() {
-        inputWires = createProverWitnessWireArray(inputString.length());
-        Wire[] digest = new SHA256Gadget(inputWires, 8, inputString.length(),
-                false, true, "").getOutputWires();
+        //inputWires = createProverWitnessWireArray(inputString.length());
+        inputWires = createProverWitnessWireArray((inputString.length()*8)/64);
+//        Wire[] digest = new SHA256Gadget(inputWires, 8, inputString.length(),
+//                false, false, "").getOutputWires();
+        Wire[] digest = new SHA256Gadget(inputWires, 64, inputString.length(),
+                false, false, "").getOutputWires();
         makeOutputArray(digest);
     }
 
@@ -35,14 +38,18 @@ public class SHA256Tester extends CircuitGenerator {
 //            evaluator.setWireValue(inputWires[i], new BigInteger(ss, 16));
 //        }
         String hex = RandomTester.charToHex(inputString, inputString.length());
-        int numOfWords = hex.length()/2;//assume multiple of 16s
+        //int numOfWords = hex.length()/2;//assume multiple of 16s
+        int numOfWords = hex.length()/16;//assume multiple of 16s
         int beginIndex = 0;
-        int endIndex = 2;
+        //int endIndex = 2;
+        int endIndex = 16;
         for(int i=0;i<numOfWords;i++){
             String word = hex.substring(beginIndex, endIndex);
             evaluator.setWireValue(inputWires[i], new BigInteger(word, 16));
-            beginIndex += 2;
-            endIndex +=2;
+            //beginIndex += 2;
+            beginIndex += 16;
+            //endIndex +=2;
+            endIndex +=16;
         }
     }
 
@@ -54,6 +61,8 @@ public class SHA256Tester extends CircuitGenerator {
 
         tester.generateCircuit();
         tester.evalCircuit();
+//        tester.prepFiles();
+//        tester.runLibsnark();
         CircuitEvaluator evaluator = tester.getCircuitEvaluator();
 
         String outDigest = "";
