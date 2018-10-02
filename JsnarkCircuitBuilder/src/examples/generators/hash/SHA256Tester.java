@@ -4,8 +4,6 @@ import circuit.eval.CircuitEvaluator;
 import circuit.structure.CircuitGenerator;
 import circuit.structure.Wire;
 import examples.gadgets.hash.SHA256Gadget;
-import examples.tests.RandomTester;
-import junit.framework.TestCase;
 import util.Util;
 
 import java.math.BigInteger;
@@ -37,7 +35,7 @@ public class SHA256Tester extends CircuitGenerator {
 //            String ss = inputString.substring(i, i+2);
 //            evaluator.setWireValue(inputWires[i], new BigInteger(ss, 16));
 //        }
-        String hex = RandomTester.charToHex(inputString, inputString.length());
+        String hex = Util.stringToHex(inputString);
         //int numOfWords = hex.length()/2;//assume multiple of 16s
         int numOfWords = hex.length()/16;//assume multiple of 16s
         int beginIndex = 0;

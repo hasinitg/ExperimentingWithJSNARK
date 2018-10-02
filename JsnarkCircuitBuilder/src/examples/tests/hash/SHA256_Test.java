@@ -4,7 +4,6 @@
 package examples.tests.hash;
 
 import circuit.config.Config;
-import examples.tests.RandomTester;
 import junit.framework.TestCase;
 
 import org.junit.Test;
