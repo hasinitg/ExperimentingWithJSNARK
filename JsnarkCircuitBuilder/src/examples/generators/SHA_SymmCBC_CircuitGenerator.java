@@ -102,7 +102,8 @@ public class SHA_SymmCBC_CircuitGenerator extends CircuitGenerator {
     }
 
     public static void main(String[] args) {
-        String plainText = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl";
+        //String plainText = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl";
+        String plainText = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl";
         //we assume plaintextInHex to be of size in multiples of 16 (i.e: original string to be in size in multiples of 8)
         //this is because, for the symmetric encryption gadget, input size is 64bit words (=16 hex, =8 chars)
         String plainTextInHex = Util.stringToHex(plainText);
