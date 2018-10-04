@@ -18,8 +18,8 @@ public class SHA_SymmCBC_CircuitGenerator extends CircuitGenerator {
     private int plainTextSizeInBytes;
 
     /*Inputs,outputs of the symmetric CBC gadget*/
-    private Wire[] plainTextWiresToSymEncr;// as 64 bit words
-    private int plainTextWordSizeForSymEncr; //in 64 bit words
+    private Wire[] plainTextWiresInHex;// as 64 bit words
+    private int numHexDigitsPerInputWire = 16; //i.e: 64 bits
     private Wire[] keyBitsWires; //128 bits
     private Wire[] ivBitsWires; //128 bits
     private final int keyIVSize = 128;
@@ -42,41 +42,41 @@ public class SHA_SymmCBC_CircuitGenerator extends CircuitGenerator {
         this.ivString = iv;
 
         plainTextSizeInBytes = plainTextInHex.length()/2; //(4 bits digits vs 8-bits digits)
-        plainTextWordSizeForSymEncr = (plainTextInHex.length() * 4) / 64;
+       // plainTextWordSizeForSymEncr = (plainTextInHex.length() * 4) / 64;
     }
 
     @Override
     protected void buildCircuit() {
-        plainTextWiresToSymEncr = createProverWitnessWireArray(plainTextWordSizeForSymEncr);
-        //SHA-256 sub circuit logic
-       // plainTextWordSizeForSHA256 = plainTextInHex.length() / 2;
-       // plainTextWiresToSHA256 = createProverWitnessWireArray(plainTextWordSizeForSHA256);
-//        Wire[] digest = new SHA256Gadget(plainTextWiresToSHA256, 8, plainTextWordSizeForSHA256,
-//                false, true, "").getOutputWires();
-        Wire[] digest = new SHA256Gadget(plainTextWiresToSymEncr, 64, plainTextSizeInBytes,
-                false, false, "").getOutputWires();
+        plainTextWiresInHex = createProverWitnessWireArray((plainTextInHex.length()/numHexDigitsPerInputWire) +
+                ((plainTextInHex.length()) % numHexDigitsPerInputWire != 0 ? 1 : 0));
+
+        Wire[] digest = new SHA256Gadget(plainTextWiresInHex, 4*numHexDigitsPerInputWire,
+                plainTextSizeInBytes,false, true, "").getOutputWires();
         makeOutputArray(digest);
 
         //Symmetric CBC sub circuit logic
         keyBitsWires = createProverWitnessWireArray(keyIVSize);
         ivBitsWires = createProverWitnessWireArray(keyIVSize);
-        Wire[] plainTextBits = new WireArray(plainTextWiresToSymEncr).getBits(64).asArray();
+        Wire[] plainTextBits = new WireArray(plainTextWiresInHex).getBits(64).asArray();
         cipherText = new SymmetricEncryptionCBCGadget(plainTextBits, keyBitsWires, ivBitsWires, cipherName).getOutputWires();
         makeOutputArray(cipherText);
     }
 
     @Override
     public void generateSampleInput(CircuitEvaluator evaluator) {
-        //set input wires of SHA-256 sub circuit
-//        for (int i = 0; i < plainTextWordSizeForSHA256; i++) {
-//            String word = plainTextInHex.substring(i * 2, i * 2 + 2);
-//            evaluator.setWireValue(plainTextWiresToSHA256[i], new BigInteger(word, 16));
-//        }
 
-        //set input wires of Symmetric CBC sub circuit
-        for (int i = 0; i < plainTextWordSizeForSymEncr; i++) {
-            String inputSubString = plainTextInHex.substring(i * 16, i * 16 + 16);
-            evaluator.setWireValue(plainTextWiresToSymEncr[i], new BigInteger(inputSubString, 16));
+        //set input wires
+        for (int i = 0; i < plainTextWiresInHex.length; i++) {
+//            String inputSubString = plainTextInHex.substring(i * 16, i * 16 + 16);
+//            evaluator.setWireValue(plainTextWiresInHex[i], new BigInteger(inputSubString, 16));
+            BigInteger sum = BigInteger.ZERO;
+            for (int j = i * numHexDigitsPerInputWire; j < (i + 1) * numHexDigitsPerInputWire &&
+                    j < plainTextInHex.length(); j+=2) {
+                String substring = plainTextInHex.substring(j, j+2);
+                BigInteger v = new BigInteger(substring, 16);
+                sum = sum.add(v.shiftLeft(((j % numHexDigitsPerInputWire)/2) * 8));
+            }
+            evaluator.setWireValue(plainTextWiresInHex[i], sum);
         }
         //convert hex representations of key and iv to binary reqpresentation
         String binaryKey = new BigInteger(keyString, 16).toString(2);
@@ -102,8 +102,19 @@ public class SHA_SymmCBC_CircuitGenerator extends CircuitGenerator {
     }
 
     public static void main(String[] args) {
-        //String plainText = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl";
-        String plainText = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl";
+        String plainText64Bytes = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl";
+        String plainText128Bytes = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl";
+        String plainText256Bytes = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklabcdefghijklmnopqrstuvwxyzab" +
+                "cdefghijklmnopqrstuvwxyzabcdefghijklabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklabc" +
+                "defghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl";
+        String plainText512Bytes = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl+" +
+                "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl";
+        String plainText1024Bytes = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl" +
+                "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl" +
+                "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl" +
+                "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl" ;
+
+        String plainText = plainText64Bytes;
         //we assume plaintextInHex to be of size in multiples of 16 (i.e: original string to be in size in multiples of 8)
         //this is because, for the symmetric encryption gadget, input size is 64bit words (=16 hex, =8 chars)
         String plainTextInHex = Util.stringToHex(plainText);

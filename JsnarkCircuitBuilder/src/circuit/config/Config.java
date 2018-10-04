@@ -17,7 +17,7 @@ public class Config {
 	static{
 		try {
 			//InputStream inStream = new FileInputStream("./JsnarkCircuitBuilder/config.properties");
-			InputStream inStream = new FileInputStream("/root/WillPower/PrivIdEx/ExperimentingwithJSNARK/" +
+			InputStream inStream = new FileInputStream("/home/hasini/MyResearch/PrivIdEx/experimentingWithJSNARK/" +
 					"ExperimentingWithJSNARK/JsnarkCircuitBuilder/config.properties");
 			properties.load(inStream);
 		} catch (FileNotFoundException e) {

@@ -20,6 +20,8 @@ import examples.gadgets.rsa.RSASigVerificationV1_5_Gadget;
 //a demo for RSA Signatures PKCS #1, V1.5
 public class RSASigVerCircuitGenerator extends CircuitGenerator {
 
+	private String inputStr;
+
 	private int rsaKeyLength;
 	private Wire[] inputMessage;
 	private LongElement signature;
@@ -28,16 +30,18 @@ public class RSASigVerCircuitGenerator extends CircuitGenerator {
 	private SHA256Gadget sha2Gadget;
 	private RSASigVerificationV1_5_Gadget rsaSigVerificationV1_5_Gadget;
 
-	public RSASigVerCircuitGenerator(String circuitName, int rsaKeyLength) {
+	public RSASigVerCircuitGenerator(String circuitName, int rsaKeyLength, String inputString) {
 		super(circuitName);
 		this.rsaKeyLength = rsaKeyLength;
+		this.inputStr = inputString;
 	}
 
 	@Override
 	protected void buildCircuit() {
 
 		// a sample input message of 3 byte
-		inputMessage = createInputWireArray(3);
+		//inputMessage = createInputWireArray(3);
+		inputMessage = createInputWireArray(inputStr.length());
 		sha2Gadget = new SHA256Gadget(inputMessage, 8, inputMessage.length,
 				false, true);
 		Wire[] digest = sha2Gadget.getOutputWires();
@@ -82,7 +86,11 @@ public class RSASigVerCircuitGenerator extends CircuitGenerator {
 
 	@Override
 	public void generateSampleInput(CircuitEvaluator evaluator) {
-		String inputStr = "abc";
+		//String inputStr = "abc";
+		//String inputStr64bits = "abcdefgh";
+
+		//String inputStr = inputStr64bits;
+
 		for (int i = 0; i < inputMessage.length; i++) {
 			evaluator.setWireValue(inputMessage[i], inputStr.charAt(i));
 		}
@@ -127,9 +135,17 @@ public class RSASigVerCircuitGenerator extends CircuitGenerator {
 	}
 
 	public static void main(String[] args) throws Exception {
+		//String inputStr = "abc";
+		String inputStr64bits = "abcdefgh";
+		String inputStr80bits = "abcdefghab";
+		String inputStr96bits = "abcdefghabcd";
+		String inputStr112bits = "abcdefghabcdef";
+		String inputStr128bits = "abcdefghabcdefgh";
+
+		String inputStr = inputStr128bits;
 		int keyLength = 2048;
 		RSASigVerCircuitGenerator generator = new RSASigVerCircuitGenerator(
-				"rsa" + keyLength + "_sha256_sig_verify", keyLength);
+				"rsa" + keyLength + "_sha256_sig_verify", keyLength, inputStr);
 		generator.generateCircuit();
 		generator.evalCircuit();
 		generator.prepFiles();
